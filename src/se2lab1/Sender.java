@@ -34,13 +34,13 @@ public class Sender
             } else {
                 try {
                     Server s = new Server(8000);
-                    s.sendFile(); //its mean wait for connection to send the file 
+                    s.waitThenSendThePanelObject(thePanel);//its mean wait for connection to send the file 
                 } catch (InterruptedException ex) {
                     Logger.getLogger(Sender.class.getName()).log(Level.SEVERE, null, ex);
                 }
                 
             }
-            System.out.println("test info from object" + thePanel.getInfo());
+            System.out.println("test info from object : " + thePanel.getInfo());
         } catch (IOException ex) {
             ex.printStackTrace();
         }
