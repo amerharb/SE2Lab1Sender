@@ -6,7 +6,7 @@ import java.io.File;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class Server implements Runnable
+public class Server 
 {
 
     private static final int PORT = 8000; //Deafult port
@@ -29,11 +29,10 @@ public class Server implements Runnable
     public Server(int port) throws InterruptedException
     {
         this.port = port;
-              
+
     }
-    
-    @Override
-    public void run() //throws InterruptedException
+
+    public void sendFile() //throws InterruptedException
     {
         File file = new File("panel.ser");
 
@@ -62,112 +61,28 @@ public class Server implements Runnable
                     bos = new BufferedOutputStream(socket.getOutputStream()); //will be used to send files
                     ps = new PrintStream(bos); //will be used to send messages
 
-                    while (true) { //wait for input from clinet
-                        String request = null;
-                        socket.setSoTimeout(120000); //wait 120 sec max
-                        try {
-                            log("Server is waiting for command");
-                            long waitCommandTime = System.currentTimeMillis();
+                    FileInputStream fis = new FileInputStream(file);
 
-                            WAIT_COMMAND:
-                            do {
-                                Thread.sleep(10);
-                                if (br.ready()) {
-                                    request = br.readLine();
-                                    waitCommandTime = System.currentTimeMillis();
-                                    if (request.equals("AKG")) {
-                                        log("got AKG");
-                                        //ignore the response and take next command
-                                        continue WAIT_COMMAND;
-                                    } else {
-                                        break WAIT_COMMAND;
-                                    }
-                                }
-                                ping();
-                            } while (true);
+                    byte[] b;
+                    final int defBufferSize = 8192;
+                    if (file.length() < defBufferSize) {
+                        b = new byte[(int) file.length()];
+                    } else {
+                        b = new byte[defBufferSize]; //max of buffer
+                    }
 
-                        } catch (Exception e) {
-                            System.out.println(e);
-                            sendLine("connnection drop TimeOut over 120 sec no command");
-                            continue SERVER_CONN; //wait for another connection 
-                        }
+                    int r;
+                    while ((r = fis.read(b)) > 0) {
+                        bos.write(b, 0, r);
+                    }
+                    bos.flush();
+                    b = null;
 
-                        //when request is null it mean the clinet socket closed
-                        if (request == null) {
-                            log("connection closed from clinet side");
-                            continue SERVER_CONN; //take next connection
-                        }
+                    Thread.sleep(10);
+                    if (shutdownServer) { //this variable changed from another thread not yet coded
+                        break SERVER_CONN;
+                    }
 
-                        if (request.equals("cur")) {
-                            log("got CUR");
-                            sendLine("Current Folder \n" + file.getAbsolutePath());
-                            sendLineTerminal();
-                            ps.flush();
-
-                        } else if (request.equals("list")) {
-                            log("got List");
-                            File[] files = file.listFiles();
-                            sendLine("Number of Files and Folder : " + files.length);
-                            for (File f : files) {
-                                if (f.isDirectory()) {
-                                    sendLine("[" + f.getName() + "]");
-                                } else {
-                                    sendLine(f.getName() + "\t\t\t" + f.length() / 1024 + " KB");
-                                }
-                            }
-                            sendLineTerminal();
-                            ps.flush();
-
-                        } else if (request.startsWith("get ")) {
-                            log("got get");
-                            String filename = request.substring(4).trim();
-                            System.out.println(filename);
-                            File f = new File("." + File.separator + filename);
-                            if (f.exists()) {
-                                if (f.isFile()) {
-                                    sendLine("COPYING " + f.length());
-                                    ps.flush();
-
-                                    FileInputStream fis = new FileInputStream(f);
-
-                                    byte[] b;
-                                    final int defBufferSize = 8192;
-                                    if (f.length() < defBufferSize) {
-                                        b = new byte[(int) f.length()];
-                                    } else {
-                                        b = new byte[defBufferSize]; //max of buffer
-                                    }
-
-                                    int r;
-                                    while ((r = fis.read(b)) > 0) {
-                                        bos.write(b, 0, r);
-                                    }
-                                    bos.flush();
-                                    b = null;
-                                } else { //its folder not file
-                                    sendLine("its not filename");
-                                    sendLineTerminal();
-                                    ps.flush();
-                                }
-                            } else { //file not exists 
-                                sendLine("file is not exists");
-                                sendLineTerminal();
-                                ps.flush();
-                            }
-
-                        } else { // unknown command
-                            log("unknow command");
-                            sendLine("Unknown command:" + request);
-                            sendLineTerminal();
-                            ps.flush();
-                        }
-
-                        Thread.sleep(10);
-                        if (shutdownServer) { //this variable changed from another thread not yet coded
-                            break SERVER_CONN;
-                        }
-
-                    } //waiting command loop 
                 } catch (IOException ex) {
                     System.out.println(ex);
 
@@ -198,32 +113,5 @@ public class Server implements Runnable
         System.out.println(msg);
     }
 
-    long pingTimer;
-
-    private void ping()
-    {
-        if (true) {
-            return; //disable ping
-        }
-        final int interval = 2000;
-
-        if (System.currentTimeMillis() - pingTimer > interval) {
-            ps.println("PING"); //send hear beat
-            ps.flush();
-            log("send PING");
-            pingTimer = System.currentTimeMillis();
-        }
-
-    }
-
-    private void sendLine(String res)
-    {
-        ps.println(res);
-    }
-
-    private void sendLineTerminal()
-    {
-        ps.println();
-    }
 
 }
